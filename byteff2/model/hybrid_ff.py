@@ -117,11 +117,22 @@ class HybridFF(Module):
         graph_block: dict,
         ff_block: list[dict],
         supported_elements: list[int],
+        atom_embedding_train_rows: list[int] | None = None,
     ):
         super().__init__()
 
         self.supported_elements = tuple(supported_elements)
+        # Optional separate parameter group "AtomEmbedding" (see get_parameters): when set, the element-embedding
+        # table leaves the "Graph" group and only the listed rows (atomic number - 1) receive gradients. Lets a new
+        # element be added to a released checkpoint without moving anything for the elements it was trained on.
+        self.atom_embedding_train_rows = None if atom_embedding_train_rows is None else [int(r) for r in atom_embedding_train_rows]
         self.graph_block = Graph2DBlock(**graph_block)
+        if self.atom_embedding_train_rows is not None:
+            weight = self.graph_block.feature_layer.atom_embedding.weight
+            mask = torch.zeros(weight.shape[0], 1, dtype=weight.dtype)
+            mask[self.atom_embedding_train_rows] = 1.0
+            self.register_buffer("_atom_embedding_grad_mask", mask, persistent=False)   # not part of the state dict
+            weight.register_hook(lambda g: g * self._atom_embedding_grad_mask.to(g.device, g.dtype))
         self.preff_block = PreForceField(self.graph_block.node_out_dim, self.graph_block.edge_out_dim, ff_block)
         self.ff_block = ForceField(self.graph_block.node_out_dim, self.graph_block.edge_out_dim, ff_block)
         self.reset_parameters()
@@ -135,7 +146,13 @@ class HybridFF(Module):
         if name is None:
             return self.parameters()
         elif name == "Graph":
-            return self.graph_block.parameters()
+            if self.atom_embedding_train_rows is None:
+                return self.graph_block.parameters()
+            emb = self.graph_block.feature_layer.atom_embedding.weight
+            return [p for p in self.graph_block.parameters() if p is not emb]
+        elif name == "AtomEmbedding":
+            assert self.atom_embedding_train_rows is not None, "set model.atom_embedding_train_rows to use this group"
+            return [self.graph_block.feature_layer.atom_embedding.weight]
         else:
             return list(self.preff_block.get_parameters(name)) + list(self.ff_block.get_parameters(name))
 
