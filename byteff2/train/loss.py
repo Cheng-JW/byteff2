@@ -185,7 +185,11 @@ def loss_func(preds: dict, data: Union[MonoData, ClusterData], loss_type: LossTy
     elif loss_type is LossType.ParamMSE:
         label_name = pop_kwarg("label")
         param_name = pop_kwarg("param")
-        loss = torch.mean((preds["ff_parameters"][param_name].view(-1) - data[label_name].view(-1)) ** 2)
+        pred_p = preds["ff_parameters"][param_name].view(-1)
+        if pred_p.numel() == 0:      # e.g. a batch without impropers/propers: mean of an empty tensor is NaN
+            loss = pred_p.sum() * 0.0
+        else:
+            loss = torch.mean((pred_p - data[label_name].view(-1)) ** 2)
 
     elif loss_type is LossType.BondedEnergy:
         trained_param_name = pop_kwarg("param")
