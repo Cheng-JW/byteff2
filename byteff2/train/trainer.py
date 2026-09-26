@@ -56,6 +56,7 @@ _AUTOGRAD_REQUIRED_LOSSES = {
     "InterEnergyDispMSE",
     "InterEnergyCTMSE",
     "InterEnergyElecPauliMSE",
+    "ParamMSE",  # model forward computes forces by autograd.grad even when only parameters are compared
 }
 
 
