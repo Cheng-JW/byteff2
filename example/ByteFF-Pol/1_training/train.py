@@ -24,8 +24,8 @@ logger = setup_default_logging()
 
 parser = argparse.ArgumentParser(description="train local")
 parser.add_argument("--conf", type=str, default="config.yaml")
-parser.add_argument("--timestamp", type=bool, default=False, action=argparse.BooleanOptionalAction)
-parser.add_argument("--restart", type=bool, default=False, action=argparse.BooleanOptionalAction)
+parser.add_argument("--timestamp", default=False, action=argparse.BooleanOptionalAction)
+parser.add_argument("--restart", default=False, action=argparse.BooleanOptionalAction)
 parser.add_argument("--asset-root", help="ByteFF2 assets root; overrides BYTEFF2_ASSET_ROOT")
 args = parser.parse_args()
 
